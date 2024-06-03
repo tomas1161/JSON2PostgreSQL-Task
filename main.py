@@ -56,7 +56,7 @@ def insert_into_database(data, db_credentials):
 if __name__ == "__main__":
     config_file = "configClear_v2.json"
     db_credentials = {
-        'dbname': "ElisaDB",
+        'dbname': "postgres",
         'user': "postgres",
         'password': "root",
         'host': "localhost",
