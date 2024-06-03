@@ -1,8 +1,7 @@
 import json
 import psycopg2
 
-def extract_interface_data(config_file):
-
+def extract_interface_data(config_file, included_types):
     with open(config_file, 'r') as f:
         config = json.load(f)
 
@@ -10,7 +9,7 @@ def extract_interface_data(config_file):
 
     data_to_insert = []
     for interface_group, intf_list in interfaces.items():
-        if isinstance(intf_list, list):
+        if interface_group in included_types and isinstance(intf_list, list):
             for intf in intf_list:
                 name = f"{interface_group}{intf['name']}"
                 description = intf.get("description")
@@ -22,12 +21,14 @@ def extract_interface_data(config_file):
                 if channel_group:
                     port_channel_id = channel_group["number"]
 
-                data_to_insert.append((name, description, max_frame_size, config_json, port_channel_id))
+                interface_type = None
+                infra_type = None
+
+                data_to_insert.append((None, name, description, config_json, interface_type, infra_type, port_channel_id, max_frame_size))
 
     return data_to_insert
 
 def insert_into_database(data, db_credentials):
-
     with psycopg2.connect(**db_credentials) as conn:
         with conn.cursor() as cur:
             cur.execute("DROP TABLE IF EXISTS interface")
@@ -49,19 +50,21 @@ def insert_into_database(data, db_credentials):
 
             for row in data:
                 cur.execute("""
-                    INSERT INTO interface (name, description, max_frame_size, config, port_channel_id)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO interface (connection, name, description, config, type, infra_type, port_channel_id, max_frame_size) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """, row)
 
 if __name__ == "__main__":
     config_file = "configClear_v2.json"
     db_credentials = {
-        'dbname': "ElisaDB",
+        'dbname': "postgres",
         'user': "postgres",
         'password': "root",
         'host': "localhost",
         'port': "5432"
     }
 
-    interface_data = extract_interface_data(config_file)
+    included_types = ["TenGigabitEthernet", "GigabitEthernet", "Port-channel"]
+    #included_types = ["TenGigabitEthernet", "GigabitEthernet", "Port-channel", "BDI", "Loopback"]
+    interface_data = extract_interface_data(config_file, included_types)
     insert_into_database(interface_data, db_credentials)
